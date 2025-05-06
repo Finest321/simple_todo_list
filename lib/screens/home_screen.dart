@@ -50,6 +50,89 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showDeleteConfirmationDialog(Task task) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Confirm Deletion'),
+            content: Text(
+              'Are you sure you want to delete the task "${task.title}"?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  _taskBloc.deleteTask(task);
+                  Navigator.pop(context);
+                },
+                child: const Text('Yes'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('No'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildGroupedTasks(List<Task> tasks) {
+    tasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final Map<String, List<Task>> groupedTasks = {};
+    for (var task in tasks) {
+      final now = DateTime.now();
+      final isToday =
+          task.createdAt.year == now.year &&
+          task.createdAt.month == now.month &&
+          task.createdAt.day == now.day;
+
+      final key =
+          isToday
+              ? 'Recent'
+              : '${task.createdAt.day}/${task.createdAt.month}/${task.createdAt.year}';
+
+      groupedTasks.putIfAbsent(key, () => []).add(task);
+    }
+
+    return ListView(
+      children:
+          groupedTasks.entries.map((entry) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: Text(
+                    entry.key,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                ...entry.value.map(
+                  (task) => ListTile(
+                    leading: Checkbox(
+                      value: task.isDone,
+                      onChanged: (_) => _taskBloc.toggleTask(task),
+                    ),
+                    title: Text(task.title),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _showDeleteConfirmationDialog(task),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,29 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (tasks.isEmpty) {
               return const Center(child: Text('No tasks yet.'));
             }
-            return ListView.builder(
-              itemCount: tasks.length,
-              itemBuilder: (_, index) {
-                final task = tasks[index];
-                return ListTile(
-                  leading: Checkbox(
-                    value: task.isDone,
-                    onChanged: (_) => _taskBloc.toggleTask(task),
-                  ),
-                  title: Text(
-                    task.title,
-                    style: TextStyle(
-                      decoration:
-                          task.isDone ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _taskBloc.deleteTask(task),
-                  ),
-                );
-              },
-            );
+            return _buildGroupedTasks(tasks);
           },
         ),
       ),
